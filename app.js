@@ -32,7 +32,6 @@ const INTENT_EMOJIS = {
 
 // ---- State ----
 let history = JSON.parse(localStorage.getItem('commentiq_history') || '[]');
-let apiKey = localStorage.getItem('commentiq_api_key') || '';
 let classifying = false;
 
 // ---- DOM Elements ----
@@ -45,30 +44,16 @@ const resultsSection = document.getElementById('resultsSection');
 const historySection = document.getElementById('historySection');
 const historyList = document.getElementById('historyList');
 const statsCount = document.getElementById('statsCount');
-const apiKeyBtn = document.getElementById('apiKeyBtn');
-const apiKeyLabel = document.getElementById('apiKeyLabel');
-const apiKeyModal = document.getElementById('apiKeyModal');
-const apiKeyInput = document.getElementById('apiKeyInput');
-const saveApiKeyBtn = document.getElementById('saveApiKey');
-const cancelApiKeyBtn = document.getElementById('cancelApiKey');
-const closeModalBtn = document.getElementById('closeModal');
-const toggleKeyVisibility = document.getElementById('toggleKeyVisibility');
 const clearHistoryBtn = document.getElementById('clearHistory');
 
 // ---- Init ----
 function init() {
     updateStats();
     renderHistory();
-    updateApiKeyUI();
 
     // Event listeners
     commentInput.addEventListener('input', onInputChange);
     classifyBtn.addEventListener('click', classifyComment);
-    apiKeyBtn.addEventListener('click', () => openModal());
-    saveApiKeyBtn.addEventListener('click', saveApiKey);
-    cancelApiKeyBtn.addEventListener('click', closeModal);
-    closeModalBtn.addEventListener('click', closeModal);
-    toggleKeyVisibility.addEventListener('click', toggleKeyVis);
     clearHistoryBtn.addEventListener('click', clearHistory);
 
     // Sample chips
@@ -81,22 +66,12 @@ function init() {
         });
     });
 
-    // Modal overlay click to close
-    apiKeyModal.addEventListener('click', (e) => {
-        if (e.target === apiKeyModal) closeModal();
-    });
-
     // Keyboard shortcut: Ctrl+Enter to classify
     commentInput.addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
             classifyComment();
         }
     });
-
-    // If no API key, prompt on first load
-    if (!apiKey) {
-        setTimeout(() => openModal(), 800);
-    }
 }
 
 // ---- Input Handling ----
@@ -106,53 +81,10 @@ function onInputChange() {
     classifyBtn.disabled = len === 0 || classifying;
 }
 
-// ---- API Key Management ----
-function openModal() {
-    apiKeyInput.value = apiKey;
-    apiKeyModal.classList.add('active');
-    setTimeout(() => apiKeyInput.focus(), 100);
-}
-
-function closeModal() {
-    apiKeyModal.classList.remove('active');
-}
-
-function saveApiKey() {
-    const key = apiKeyInput.value.trim();
-    if (!key) {
-        showToast('Please enter a valid API key');
-        return;
-    }
-    apiKey = key;
-    localStorage.setItem('commentiq_api_key', apiKey);
-    updateApiKeyUI();
-    closeModal();
-    showToast('API key saved successfully!', 'success');
-}
-
-function updateApiKeyUI() {
-    if (apiKey) {
-        apiKeyLabel.textContent = 'Key: •••' + apiKey.slice(-4);
-    } else {
-        apiKeyLabel.textContent = 'Set API Key';
-    }
-}
-
-function toggleKeyVis() {
-    const input = apiKeyInput;
-    input.type = input.type === 'password' ? 'text' : 'password';
-}
-
 // ---- Classification ----
 async function classifyComment() {
     const text = commentInput.value.trim();
     if (!text || classifying) return;
-
-    if (!apiKey) {
-        openModal();
-        showToast('Please set your OpenRouter API key first');
-        return;
-    }
 
     classifying = true;
     classifyBtn.classList.add('loading');
@@ -164,7 +96,7 @@ async function classifyComment() {
         addToHistory(result, text);
     } catch (error) {
         console.error('Classification error:', error);
-        showToast(error.message || 'Classification failed. Please check your API key and try again.');
+        showToast(error.message || 'Classification failed. Please try again.');
     } finally {
         classifying = false;
         classifyBtn.classList.remove('loading');
@@ -173,115 +105,21 @@ async function classifyComment() {
 }
 
 async function callOpenRouterAPI(commentText) {
-    const systemPrompt = `You are an expert comment/content classifier. You always respond ONLY with a valid JSON object (no markdown, no code fences).`;
+    const response = await fetch('/api/classify', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ commentText })
+    });
 
-    const userPrompt = `Analyze the following comment and provide a detailed classification.
+    const data = await response.json();
 
-COMMENT:
-"""
-${commentText}
-"""
-
-Respond ONLY with a valid JSON object (no markdown, no code fences) with exactly these fields:
-{
-  "intent": "<primary intent: one of spam, question, feedback, complaint, appreciation, suggestion, request, opinion, informational, toxic, greeting, humor, promotion, support, other>",
-  "confidence": <number 0-100 representing your confidence in the intent classification>,
-  "sentiment": "<positive, negative, neutral, or mixed>",
-  "sentiment_score": <number from -100 (very negative) to 100 (very positive)>,
-  "toxicity_score": <number 0-100 where 0 is not toxic and 100 is very toxic>,
-  "category": "<broad category like Technology, Entertainment, Business, Social, Education, Health, General, etc.>",
-  "action_required": "<one of: None, Respond, Moderate, Flag, Escalate, Review>",
-  "tags": ["<list of 2-5 relevant descriptive tags>"],
-  "explanation": "<brief 1-3 sentence explanation of why you classified this comment this way>"
-}`;
-
-    const url = 'https://openrouter.ai/api/v1/chat/completions';
-
-    // Verified free models from OpenRouter API — ordered by quality/speed
-    const FREE_MODELS = [
-        'nousresearch/hermes-3-llama-3.1-405b:free',
-        'meta-llama/llama-3.3-70b-instruct:free',
-        'openai/gpt-oss-120b:free',
-        'google/gemma-3-27b-it:free',
-        'nvidia/nemotron-3-nano-30b-a3b:free',
-        'mistralai/mistral-small-3.1-24b-instruct:free',
-        'google/gemma-3-12b-it:free'
-    ];
-
-    let lastError = null;
-
-    for (const model of FREE_MODELS) {
-        console.log(`--- Trying model: ${model} ---`);
-
-        const requestBody = {
-            model: model,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt }
-            ],
-            temperature: 0.2,
-            max_tokens: 1024
-        };
-
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
-                'HTTP-Referer': window.location.href,
-                'X-Title': 'CommentIQ Classifier'
-            },
-            body: JSON.stringify(requestBody)
-        });
-
-        console.log('Status:', response.status, response.statusText);
-
-        const data = await response.json();
-        console.log('Response:', JSON.stringify(data, null, 2));
-
-        // If rate-limited or model unavailable, try next model
-        if (response.status === 429 || (response.status === 400 && data.error?.message?.includes('No endpoints'))) {
-            console.warn(`Model ${model} unavailable or rate-limited, trying next...`);
-            lastError = data.error?.message || `Model ${model} rate-limited`;
-            continue;
-        }
-
-        if (!response.ok) {
-            console.error('API Error:', data);
-            if (response.status === 401) {
-                throw new Error('Invalid API key. Please check your OpenRouter API key.');
-            }
-            if (response.status === 402) {
-                throw new Error('Insufficient credits. Please check your OpenRouter account.');
-            }
-            throw new Error(data.error?.message || `API request failed (${response.status})`);
-        }
-
-        const responseText = data.choices?.[0]?.message?.content;
-        console.log('Model used:', model);
-        console.log('Response text:', responseText);
-
-        if (!responseText) {
-            console.error('No content in response. Full data:', data);
-            throw new Error('No response from OpenRouter API');
-        }
-
-        // Parse JSON, removing any markdown code fences if present
-        const cleanJson = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        console.log('Clean JSON:', cleanJson);
-
-        try {
-            const parsed = JSON.parse(cleanJson);
-            console.log('Parsed result:', parsed);
-            return parsed;
-        } catch (parseError) {
-            console.error('Parse error:', parseError, 'Raw response:', responseText);
-            throw new Error('Failed to parse AI response. Please try again.');
-        }
+    if (!response.ok) {
+        throw new Error(data.error || 'Server error occurred during classification.');
     }
 
-    // All models failed
-    throw new Error(`All models are rate-limited. Please wait a minute and try again. Last error: ${lastError}`);
+    return data;
 }
 
 // ---- Display Result ----
