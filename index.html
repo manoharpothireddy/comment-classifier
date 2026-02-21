@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CommentIQ — AI Comment Classifier</title>
+    <meta name="description"
+        content="Classify comments by intent and sentiment using OpenRouter AI. Detect spam, toxicity, questions, feedback and more.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- Application Container -->
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                        <rect width="32" height="32" rx="8" fill="url(#logoGrad)" />
+                        <path
+                            d="M8 12C8 10.8954 8.89543 10 10 10H22C23.1046 10 24 10.8954 24 12V18C24 19.1046 23.1046 20 22 20H18L14 24V20H10C8.89543 20 8 19.1046 8 18V12Z"
+                            fill="white" fill-opacity="0.9" />
+                        <circle cx="13" cy="15" r="1.5" fill="url(#logoGrad)" />
+                        <circle cx="16" cy="15" r="1.5" fill="url(#logoGrad)" />
+                        <circle cx="19" cy="15" r="1.5" fill="url(#logoGrad)" />
+                        <defs>
+                            <linearGradient id="logoGrad" x1="0" y1="0" x2="32" y2="32">
+                                <stop stop-color="#6366f1" />
+                                <stop offset="1" stop-color="#a855f7" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <div class="logo-text">
+                    <h1>Comment<span>IQ</span></h1>
+                    <p>AI-Powered Intent Classifier</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="api-key-wrapper" id="apiKeyWrapper">
+                    <button class="btn btn-ghost" id="apiKeyBtn" title="Set API Key">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path
+                                d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4" />
+                        </svg>
+                        <span id="apiKeyLabel">Set API Key</span>
+                    </button>
+                </div>
+                <div class="stats-badge" id="statsBadge">
+                    <span class="stats-count" id="statsCount">0</span>
+                    <span class="stats-label">classified</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- API Key Modal -->
+        <div class="modal-overlay" id="apiKeyModal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2>Configure OpenRouter API Key</h2>
+                    <button class="btn-close" id="closeModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>Enter your OpenRouter API key to enable comment classification. Get a free key from <a
+                            href="https://openrouter.ai/keys" target="_blank">OpenRouter Dashboard</a>.</p>
+                    <div class="input-group">
+                        <label for="apiKeyInput">API Key</label>
+                        <div class="input-with-icon">
+                            <input type="password" id="apiKeyInput" placeholder="sk-or-v1-..." autocomplete="off">
+                            <button class="btn-icon" id="toggleKeyVisibility" title="Toggle visibility">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                    <circle cx="12" cy="12" r="3" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" id="cancelApiKey">Cancel</button>
+                    <button class="btn btn-primary" id="saveApiKey">Save Key</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Input Section -->
+            <section class="input-section">
+                <div class="card card-input">
+                    <div class="card-header">
+                        <div class="card-title-group">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                            </svg>
+                            <h2>Enter Comment</h2>
+                        </div>
+                        <div class="char-count">
+                            <span id="charCount">0</span> / 2000
+                        </div>
+                    </div>
+                    <div class="textarea-wrapper">
+                        <textarea id="commentInput" placeholder="Paste or type a comment here to classify its intent..."
+                            maxlength="2000" rows="4"></textarea>
+                    </div>
+                    <div class="card-actions">
+                        <div class="sample-chips">
+                            <span class="chip-label">Try samples:</span>
+                            <button class="chip" data-sample="spam">🛒 Spam</button>
+                            <button class="chip" data-sample="question">❓ Question</button>
+                            <button class="chip" data-sample="feedback">💬 Feedback</button>
+                            <button class="chip" data-sample="toxic">⚠️ Toxic</button>
+                            <button class="chip" data-sample="appreciation">❤️ Appreciation</button>
+                        </div>
+                        <button class="btn btn-primary btn-classify" id="classifyBtn" disabled>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                            </svg>
+                            <span>Classify</span>
+                            <div class="btn-loader" id="btnLoader"></div>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section class="results-section" id="resultsSection">
+                <!-- Result Card (populated by JS) -->
+                <div class="card card-result" id="resultCard" style="display:none;">
+                    <div class="card-header">
+                        <div class="card-title-group">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+                                <path d="m9 12 2 2 4-4" />
+                            </svg>
+                            <h2>Classification Result</h2>
+                        </div>
+                        <span class="result-timestamp" id="resultTimestamp"></span>
+                    </div>
+
+                    <div class="result-body">
+                        <!-- Primary Intent -->
+                        <div class="result-primary">
+                            <div class="intent-badge-large" id="intentBadge">
+                                <span class="intent-emoji" id="intentEmoji"></span>
+                                <div class="intent-info">
+                                    <span class="intent-label">Primary Intent</span>
+                                    <span class="intent-name" id="intentName"></span>
+                                </div>
+                                <div class="confidence-ring" id="confidenceRing">
+                                    <svg viewBox="0 0 36 36">
+                                        <path class="ring-bg"
+                                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                        <path class="ring-fill" id="ringFill" stroke-dasharray="0, 100"
+                                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                    </svg>
+                                    <span class="confidence-value" id="confidenceValue"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Metrics Grid -->
+                        <div class="metrics-grid">
+                            <div class="metric-card" id="sentimentMetric">
+                                <div class="metric-icon" id="sentimentIcon"></div>
+                                <div class="metric-info">
+                                    <span class="metric-label">Sentiment</span>
+                                    <span class="metric-value" id="sentimentValue"></span>
+                                </div>
+                                <div class="metric-bar">
+                                    <div class="metric-bar-fill" id="sentimentBar"></div>
+                                </div>
+                            </div>
+                            <div class="metric-card" id="toxicityMetric">
+                                <div class="metric-icon">🛡️</div>
+                                <div class="metric-info">
+                                    <span class="metric-label">Toxicity</span>
+                                    <span class="metric-value" id="toxicityValue"></span>
+                                </div>
+                                <div class="metric-bar">
+                                    <div class="metric-bar-fill toxicity-bar" id="toxicityBar"></div>
+                                </div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-icon">🏷️</div>
+                                <div class="metric-info">
+                                    <span class="metric-label">Category</span>
+                                    <span class="metric-value" id="categoryValue"></span>
+                                </div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-icon">🎯</div>
+                                <div class="metric-info">
+                                    <span class="metric-label">Action Required</span>
+                                    <span class="metric-value" id="actionValue"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tags -->
+                        <div class="result-tags" id="resultTags"></div>
+
+                        <!-- Explanation -->
+                        <div class="result-explanation">
+                            <h3>AI Explanation</h3>
+                            <p id="explanationText"></p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- History Section -->
+            <section class="history-section" id="historySection" style="display:none;">
+                <div class="section-header">
+                    <div class="card-title-group">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                            <polyline points="12 6 12 12 16 14" />
+                        </svg>
+                        <h2>Classification History</h2>
+                    </div>
+                    <button class="btn btn-ghost btn-sm" id="clearHistory">Clear All</button>
+                </div>
+                <div class="history-list" id="historyList"></div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
